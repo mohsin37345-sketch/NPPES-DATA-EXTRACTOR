@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, AlertCircle, Search, Table as TableIcon, FileUp, Zap, Clock, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import FileUpload from '@/components/FileUpload';
 import ProgressDisplay from '@/components/ProgressDisplay';
 
@@ -16,6 +17,7 @@ export default function ClientPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [batchFile, setBatchFile] = useState<File | null>(null);
+  const [rowCount, setRowCount] = useState<number | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,14 +280,31 @@ export default function ClientPage() {
                 {status === 'processing' && (
                   <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-xs font-mono text-yellow-500 animate-pulse flex items-center gap-2">
                     <Clock className="w-3 h-3" />
-                    {elapsedTime}s elapsed (Est: ~1.5s / row)
+                    {elapsedTime}s elapsed {rowCount ? `(Est: ~${Math.round(rowCount * 1.5)}s)` : '(Est: ~1.5s / row)'}
                   </div>
                 )}
               </div>
 
               {!batchFile && (
                 <FileUpload 
-                  onFileSelect={(file) => setBatchFile(file)} 
+                  onFileSelect={async (file) => {
+                    setBatchFile(file);
+                    // Estimate row count
+                    try {
+                      const reader = new FileReader();
+                      reader.onload = (e) => {
+                        const data = e.target?.result;
+                        const workbook = XLSX.read(data, { type: 'binary' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const json = XLSX.utils.sheet_to_json(worksheet);
+                        setRowCount(json.length);
+                      };
+                      reader.readAsBinaryString(file);
+                    } catch (err) {
+                      console.error('Failed to parse row count', err);
+                    }
+                  }} 
                   disabled={status === 'processing'} 
                 />
               )}
@@ -299,11 +318,13 @@ export default function ClientPage() {
                         </div>
                         <div>
                           <p className="text-slate-200 font-semibold">{batchFile.name}</p>
-                          <p className="text-xs text-slate-500">{(batchFile.size / 1024).toFixed(1)} KB • Ready to process</p>
+                          <p className="text-xs text-slate-500">
+                            {(batchFile.size / 1024).toFixed(1)} KB • {rowCount !== null ? `${rowCount} rows found` : 'Analyzing...'}
+                          </p>
                         </div>
                       </div>
                       <button 
-                         onClick={() => setBatchFile(null)}
+                         onClick={() => { setBatchFile(null); setRowCount(null); }}
                          disabled={status === 'processing'}
                          className="text-xs text-slate-500 hover:text-red-400 underline underline-offset-4"
                       >
@@ -315,13 +336,13 @@ export default function ClientPage() {
                      <div className="space-y-4">
                         <div className="flex items-center gap-3 text-indigo-400 animate-pulse mb-2">
                            <Clock className="w-5 h-5 animate-spin-slow" />
-                           <span className="font-semibold">Processing Data...</span>
+                           <span className="font-semibold">Processing {rowCount} Rows...</span>
                         </div>
                         <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                           <div className="h-full bg-indigo-500 animate-loading-bar" />
                         </div>
                         <p className="text-xs text-slate-400 text-center italic">
-                          Estimated time depends on the number of rows in your file. 
+                          Estimated completion in ~{rowCount ? Math.round(rowCount * 1.5) : '...'} seconds. 
                         </p>
                      </div>
                    ) : (
