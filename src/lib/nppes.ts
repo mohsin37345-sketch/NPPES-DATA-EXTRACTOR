@@ -161,8 +161,8 @@ export async function searchNPPESList(params: {
     enumType = 'NPI-1';
   }
 
-  const PAGE_SIZE = 200;
-  const userLimit = params.limit || 1000; // hard cap to prevent runaway fetches
+  const PAGE_SIZE = 200; // NPPES API max per request
+  const userLimit = params.limit || 5000; // hard cap to prevent runaway fetches
 
   const baseQueryParams: Record<string, string> = {
     version: '2.1',

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       state,
       npiType,
       taxonomyDescription: taxonomy,
-      limit: limit || 200
+      limit: limit || 1200
     });
 
     if (results.length === 0) {
