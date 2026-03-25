@@ -44,12 +44,19 @@ export default function ClientPage() {
         body: JSON.stringify({ state, npiType, taxonomy, limit: 200 }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to search NPPES');
+      // Safely parse — server may return plain text on timeout/crash
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Server error: ${response.status} ${response.statusText}. The request may have timed out.`);
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to search NPPES');
+      }
+
       setResults(data.results || []);
       setStatus('done');
       
@@ -61,6 +68,7 @@ export default function ClientPage() {
       clearInterval(interval);
     }
   };
+
 
   const handleBatchProcess = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,8 +93,10 @@ export default function ClientPage() {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Batch processing failed');
+        const errText = await response.text();
+        let errMsg = 'Batch processing failed';
+        try { errMsg = JSON.parse(errText)?.error || errMsg; } catch { /* plain text */ }
+        throw new Error(errMsg);
       }
 
       const blob = await response.blob();

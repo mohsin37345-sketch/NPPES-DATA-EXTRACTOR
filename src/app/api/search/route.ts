@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchNPPESList } from '@/lib/nppes';
 import { buildOutputExcel } from '@/lib/excel';
 
+export const maxDuration = 60; // Allow up to 60 seconds
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -18,7 +21,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No results found.' }, { status: 404 });
     }
 
-    return NextResponse.json({ results });
+    try {
+      return NextResponse.json({ results });
+    } catch (jsonErr: any) {
+      // If JSON serialization fails (e.g. body too large), return a subset
+      return NextResponse.json(
+        { error: `Result set too large to return (${results.length} rows). Try narrowing your search filters.` },
+        { status: 413 }
+      );
+    }
 
   } catch (error: any) {
     console.error('Search error:', error);

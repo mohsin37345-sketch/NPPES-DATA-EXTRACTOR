@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseExcelData, buildOutputExcel } from '@/lib/excel';
 import { queryNPPES } from '@/lib/nppes';
 
+export const maxDuration = 60; // Allow up to 60 seconds
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();

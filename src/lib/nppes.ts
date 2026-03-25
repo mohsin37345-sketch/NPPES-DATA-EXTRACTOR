@@ -161,23 +161,27 @@ export async function searchNPPESList(params: {
     enumType = 'NPI-1';
   }
 
+  const PAGE_SIZE = 200;
+  const userLimit = params.limit || 1000; // hard cap to prevent runaway fetches
+
   const baseQueryParams: Record<string, string> = {
     version: '2.1',
-    limit: '200',
+    limit: PAGE_SIZE.toString(),
   };
-  
+
   if (params.state) baseQueryParams.state = params.state.trim().toUpperCase();
   if (enumType) baseQueryParams.enumeration_type = enumType;
   if (params.taxonomyDescription) baseQueryParams.taxonomy_description = params.taxonomyDescription.trim();
 
-  let allResults: any[] = [];
+  const allResults: any[] = [];
+  const seenNPIs = new Set<string>(); // deduplication tracker
   let skip = 0;
-  let hasMore = true;
+  let totalAvailable = Infinity; // will be set from the first API response
 
   try {
-    while (hasMore) {
+    while (allResults.length < userLimit && skip < totalAvailable) {
       const queryParams = { ...baseQueryParams, skip: skip.toString() };
-      
+
       if (skip > 0) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -185,25 +189,33 @@ export async function searchNPPESList(params: {
       const response = await axios.get(NPPES_URL, { params: queryParams });
       const data = response.data;
 
+      // Set the true total from the API on the first page
+      if (skip === 0) {
+        totalAvailable = typeof data.result_count === 'number' ? data.result_count : PAGE_SIZE;
+      }
+
       if (data.Errors && data.Errors.length > 0) {
-        if (allResults.length > 0) {
-            break;
-        }
+        if (allResults.length > 0) break;
         throw new Error(data.Errors.map((e: any) => e.description).join('; '));
       }
 
       if (!data.results || data.results.length === 0) {
-        hasMore = false;
         break;
       }
 
       for (const bestMatch of data.results) {
+        const npiNumber = bestMatch.number || '';
+
+        // Skip duplicates
+        if (npiNumber && seenNPIs.has(npiNumber)) continue;
+        if (npiNumber) seenNPIs.add(npiNumber);
+
         const basic = bestMatch.basic || {};
         const primaryTaxonomy = bestMatch.taxonomies?.find((t: any) => t.primary === true) || bestMatch.taxonomies?.[0];
         const locationAddress = bestMatch.addresses?.find((a: any) => a.address_purpose === 'LOCATION') || bestMatch.addresses?.[0];
 
         allResults.push({
-          'NPI Number': bestMatch.number || '',
+          'NPI Number': npiNumber,
           'Enumeration Date': basic.enumeration_date || '',
           'Organization Name': basic.organization_name || '',
           'First Name': basic.authorized_official_first_name || basic.first_name || '',
@@ -214,13 +226,12 @@ export async function searchNPPESList(params: {
           'NPI Type': bestMatch.enumeration_type || '',
           'Taxonomy': primaryTaxonomy?.desc || '',
         });
+
+        if (allResults.length >= userLimit) break;
       }
 
-      if (data.results.length < 200) {
-        hasMore = false;
-      } else {
-        skip += 200;
-      }
+      // Advance to next page
+      skip += PAGE_SIZE;
     }
 
     return allResults;
@@ -229,4 +240,5 @@ export async function searchNPPESList(params: {
     throw new Error(error.response?.data?.Errors?.[0]?.description || error.message || 'API Request Failed');
   }
 }
+
 
