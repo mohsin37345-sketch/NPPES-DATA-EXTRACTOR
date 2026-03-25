@@ -148,7 +148,8 @@ export async function queryNPPES(params: {
 }
 
 // Fetch ALL matching NPPES records with automatic pagination and deduplication.
-// No artificial limit — loops until the API returns no more data.
+// NOTE: The NPPES API caps result_count at 200 — DO NOT use it to control the loop.
+// We stop ONLY when a page returns 0 results or fewer than 200 results (last page).
 export async function searchNPPESList(params: {
   state?: string;
   npiType?: string;
@@ -169,20 +170,15 @@ export async function searchNPPESList(params: {
   const all: any[] = [];
   const seen = new Set<string>(); // NPI deduplication
   let skip = 0;
-  let total = -1; // unknown until first response
 
   while (true) {
     const res = await axios.get(NPPES_URL, { params: { ...base, skip: String(skip) } });
     const data = res.data;
 
-    // Capture total count from first page (may be string or number)
-    if (total === -1) {
-      total = Number(data.result_count) || 0;
-      if (total === 0) break; // nothing available
-    }
-
     const page: any[] = Array.isArray(data.results) ? data.results : [];
-    if (page.length === 0) break; // API returned empty — we're done
+
+    // Empty page = no more data, stop
+    if (page.length === 0) break;
 
     for (const item of page) {
       const npi = String(item.number || '').trim();
@@ -207,12 +203,12 @@ export async function searchNPPESList(params: {
       });
     }
 
+    // Partial page = last page, stop
+    if (page.length < 200) break;
+
     skip += 200;
 
-    // Stop if we fetched the last partial page or reached the declared total
-    if (page.length < 200 || skip >= total) break;
-
-    // Small polite delay between pages
+    // Small polite delay between pages (keeps us within Render timeout)
     await new Promise(r => setTimeout(r, 150));
   }
 
