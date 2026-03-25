@@ -67,9 +67,16 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(JSON.stringify(batch) + '\n'));
           }
 
-          if (page.length < 200) break; // Last page
+          if (page.length < 200) break; // Last natural page
 
           skip += 200;
+
+          // BIG DISCOVERY: The CMS NPPES API has a hard ceiling at 1200 results.
+          // Any `skip` value over 1000 is ignored and just returns the exact same
+          // records 1000-1199 over and over in an infinite loop.
+          // We MUST break here to prevent the server from spinning forever.
+          if (skip > 1000) break;
+
           await new Promise(r => setTimeout(r, 100)); // Polite delay
         }
       } catch (err: any) {
