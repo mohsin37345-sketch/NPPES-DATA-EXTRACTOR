@@ -41,7 +41,7 @@ export default function ClientPage() {
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, npiType, taxonomy, limit: 200 }),
+        body: JSON.stringify({ state, npiType, taxonomy }),
       });
 
       // Safely parse — server may return plain text on timeout/crash
