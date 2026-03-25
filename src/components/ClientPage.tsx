@@ -299,7 +299,27 @@ export default function ClientPage() {
                     </button>
                   )}
                 </div>
+
+                {/* Live extraction counter */}
+                {(status === 'processing' || status === 'done') && results.length > 0 && (
+                  <div className={`flex items-center gap-2 mt-3 text-sm font-medium transition-all ${
+                    status === 'processing' ? 'text-indigo-400' : 'text-green-400'
+                  }`}>
+                    {status === 'processing' ? (
+                      <>
+                        <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+                        Extracting... <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records found
+                      </>
+                    ) : (
+                      <>
+                        <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
+                        Done — <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records extracted
+                      </>
+                    )}
+                  </div>
+                )}
               </form>
+
             </div>
           ) : (
             <div className="space-y-6">
