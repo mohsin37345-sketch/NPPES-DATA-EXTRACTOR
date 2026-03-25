@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const outputBuffer = await buildOutputExcel(enrichedRows);
 
     // 4. Send back as file download
-    const response = new NextResponse(outputBuffer);
+    const response = new NextResponse(outputBuffer as any);
     response.headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     response.headers.set('Content-Disposition', 'attachment; filename="NPPES_Extracted_Results.xlsx"');
 

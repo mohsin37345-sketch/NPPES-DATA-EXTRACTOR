@@ -53,5 +53,5 @@ export async function buildOutputExcel(rows: any[]): Promise<Buffer> {
   };
 
   // Generate buffer
-  return (await workbook.xlsx.writeBuffer()) as Buffer;
+  return (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
 }
