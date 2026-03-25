@@ -47,6 +47,10 @@ export async function POST(req: NextRequest) {
       try {
         for (const field of fieldsToScan) {
           for (const prefix of prefixes) {
+            // Tell the client which prefix we are currently scanning
+            const fieldLabel = field === 'last_name' ? 'Last Name' : 'Organization Name';
+            controller.enqueue(encoder.encode(JSON.stringify({ progress: `Scanning ${fieldLabel}: ${prefix}*` }) + '\n'));
+
             let skip = 0;
 
             while (true) {

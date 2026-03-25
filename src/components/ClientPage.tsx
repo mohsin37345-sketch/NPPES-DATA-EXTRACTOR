@@ -18,6 +18,7 @@ export default function ClientPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [batchFile, setBatchFile] = useState<File | null>(null);
   const [rowCount, setRowCount] = useState<number | null>(null);
+  const [scanProgress, setScanProgress] = useState<string>(''); // Live scan indicator
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +31,7 @@ export default function ClientPage() {
     setStatus('processing');
     setErrorMsg('');
     setResults([]);
+    setScanProgress('');
     setElapsedTime(0);
 
     const startTime = Date.now();
@@ -67,6 +69,10 @@ export default function ClientPage() {
           try {
             const parsed = JSON.parse(line);
             if (parsed.error) throw new Error(parsed.error);
+            if (parsed.progress) {
+              setScanProgress(parsed.progress);
+              continue; // Skip adding to results
+            }
             accumulated.push(...parsed);
             setResults([...accumulated]); // update UI progressively
           } catch (parseErr: any) {
@@ -79,12 +85,14 @@ export default function ClientPage() {
       if (buffer.trim()) {
         try {
           const parsed = JSON.parse(buffer);
-          if (!parsed.error) { accumulated.push(...parsed); setResults([...accumulated]); }
+          if (parsed.progress) setScanProgress(parsed.progress);
+          else if (!parsed.error) { accumulated.push(...parsed); setResults([...accumulated]); }
         } catch { /* ignore */ }
       }
 
       if (accumulated.length === 0) throw new Error('No results found.');
       setStatus('done');
+      setScanProgress('Deep Scan Complete');
       
     } catch (err: any) {
       console.error(err);
@@ -301,20 +309,28 @@ export default function ClientPage() {
                 </div>
 
                 {/* Live extraction counter */}
-                {(status === 'processing' || status === 'done') && results.length > 0 && (
-                  <div className={`flex items-center gap-2 mt-3 text-sm font-medium transition-all ${
+                {(status === 'processing' || status === 'done') && (
+                  <div className={`flex flex-col gap-1 mt-3 text-sm font-medium transition-all ${
                     status === 'processing' ? 'text-indigo-400' : 'text-green-400'
                   }`}>
-                    {status === 'processing' ? (
-                      <>
-                        <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-                        Extracting... <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records found
-                      </>
-                    ) : (
-                      <>
-                        <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
-                        Done — <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records extracted
-                      </>
+                    <div className="flex items-center gap-2">
+                      {status === 'processing' ? (
+                        <>
+                          <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+                          Extracting... <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records found
+                        </>
+                      ) : (
+                        <>
+                          <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
+                          Done — <span className="font-bold tabular-nums">{results.length.toLocaleString()}</span> records extracted
+                        </>
+                      )}
+                    </div>
+                    {scanProgress && (
+                      <div className="text-slate-500 text-xs ml-4">
+                        {status === 'processing' && <Clock className="w-3 h-3 inline mr-1 animate-spin-slow" />}
+                        {scanProgress}
+                      </div>
                     )}
                   </div>
                 )}
