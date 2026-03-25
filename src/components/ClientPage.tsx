@@ -11,6 +11,7 @@ export default function ClientPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +24,12 @@ export default function ClientPage() {
     setStatus('processing');
     setErrorMsg('');
     setResults([]);
+    setElapsedTime(0);
+
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
 
     try {
       const response = await fetch('/api/search', {
@@ -44,6 +51,8 @@ export default function ClientPage() {
       console.error(err);
       setStatus('error');
       setErrorMsg(err.message || 'An unexpected error occurred');
+    } finally {
+      clearInterval(interval);
     }
   };
 
@@ -128,7 +137,7 @@ export default function ClientPage() {
                 disabled={status === 'processing'}
                 className="flex-1 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:text-indigo-300 text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-500/20"
               >
-                {status === 'processing' ? 'Searching...' : 'Search Registry'}
+                {status === 'processing' ? `Searching... ${elapsedTime}s (Est: ~15s)` : 'Search Registry'}
               </button>
 
               {status === 'done' && results.length > 0 && (
