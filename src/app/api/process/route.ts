@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
         ...row,
         '---': '', // Visual separator
         'Extracted NPI Number': result.npi_number,
+        'Extracted Enumeration Date': result.enumeration_date,
         'Extracted Org Name': result.organization_name,
         'Extracted Auth First Name': result.auth_first_name,
         'Extracted Auth Last Name': result.auth_last_name,

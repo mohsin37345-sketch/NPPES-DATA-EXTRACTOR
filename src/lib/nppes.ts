@@ -5,6 +5,7 @@ const NPPES_URL = 'https://npiregistry.cms.hhs.gov/api/';
 
 export interface NPPESMatchResult {
   npi_number: string;
+  enumeration_date: string;
   organization_name: string;
   auth_first_name: string;
   auth_last_name: string;
@@ -24,6 +25,7 @@ export async function queryNPPES(params: {
 }): Promise<NPPESMatchResult> {
   const defaultResult: NPPESMatchResult = {
     npi_number: '',
+    enumeration_date: '',
     organization_name: '',
     auth_first_name: '',
     auth_last_name: '',
@@ -125,6 +127,7 @@ export async function queryNPPES(params: {
 
     return {
       npi_number: bestMatch.number || '',
+      enumeration_date: basic.enumeration_date || '',
       organization_name: basic.organization_name || '',
       auth_first_name: basic.authorized_official_first_name || '',
       auth_last_name: basic.authorized_official_last_name || '',
@@ -201,6 +204,7 @@ export async function searchNPPESList(params: {
 
         allResults.push({
           'NPI Number': bestMatch.number || '',
+          'Enumeration Date': basic.enumeration_date || '',
           'Organization Name': basic.organization_name || '',
           'First Name': basic.authorized_official_first_name || basic.first_name || '',
           'Last Name': basic.authorized_official_last_name || basic.last_name || '',
