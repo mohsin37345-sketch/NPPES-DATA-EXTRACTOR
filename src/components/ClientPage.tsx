@@ -44,20 +44,46 @@ export default function ClientPage() {
         body: JSON.stringify({ state, npiType, taxonomy }),
       });
 
-      // Safely parse — server may return plain text on timeout/crash
-      const text = await response.text();
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch {
+      if (!response.ok || !response.body) {
         throw new Error(`Server error: ${response.status} ${response.statusText}. The request may have timed out.`);
       }
 
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to search NPPES');
+      // Read the streaming NDJSON response — each line is a batch of 200 results
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const accumulated: any[] = [];
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep any incomplete line
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.error) throw new Error(parsed.error);
+            accumulated.push(...parsed);
+            setResults([...accumulated]); // update UI progressively
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr;
+          }
+        }
       }
 
-      setResults(data.results || []);
+      // Handle any trailing data
+      if (buffer.trim()) {
+        try {
+          const parsed = JSON.parse(buffer);
+          if (!parsed.error) { accumulated.push(...parsed); setResults([...accumulated]); }
+        } catch { /* ignore */ }
+      }
+
+      if (accumulated.length === 0) throw new Error('No results found.');
       setStatus('done');
       
     } catch (err: any) {

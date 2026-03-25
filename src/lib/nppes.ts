@@ -52,15 +52,15 @@ export async function queryNPPES(params: {
       version: '2.1',
       limit: '50', // Fetch max 50 to find best matching taxonomy
     };
-    
+
     if (params.state) {
       queryParams.state = params.state.trim().toUpperCase();
     }
-    
+
     if (enumType) {
       queryParams.enumeration_type = enumType;
     }
-    
+
     // Taxonomy desc is our primary search filter
     if (params.taxonomyDescription) {
       queryParams.taxonomy_description = params.taxonomyDescription.trim();
@@ -69,7 +69,7 @@ export async function queryNPPES(params: {
     // 3. Make API Call
     // Add a tiny artificial delay to help with rate limits
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     const response = await axios.get(NPPES_URL, { params: queryParams });
     const data = response.data;
 
@@ -97,27 +97,27 @@ export async function queryNPPES(params: {
     let fallbackStatus: 'Exact' | 'Best Effort' = 'Best Effort';
 
     if (params.taxonomyDescription) {
-       const searchTax = params.taxonomyDescription.toLowerCase();
-       
-       for (const result of data.results) {
-         // Find primary taxonomy
-         const primaryTax = result.taxonomies.find((t: any) => t.primary === true) || result.taxonomies[0];
-         if (!primaryTax) continue;
-         
-         const resTax = (primaryTax.desc || '').toLowerCase();
-         if (resTax === searchTax) {
-             bestMatch = result;
-             isExact = true;
-             fallbackStatus = 'Exact';
-             break; // Perfect match found
-         }
-         
-         if (resTax.includes(searchTax) || searchTax.includes(resTax)) {
-             bestMatch = result; // Better partial match, keep checking
-         }
-       }
+      const searchTax = params.taxonomyDescription.toLowerCase();
+
+      for (const result of data.results) {
+        // Find primary taxonomy
+        const primaryTax = result.taxonomies.find((t: any) => t.primary === true) || result.taxonomies[0];
+        if (!primaryTax) continue;
+
+        const resTax = (primaryTax.desc || '').toLowerCase();
+        if (resTax === searchTax) {
+          bestMatch = result;
+          isExact = true;
+          fallbackStatus = 'Exact';
+          break; // Perfect match found
+        }
+
+        if (resTax.includes(searchTax) || searchTax.includes(resTax)) {
+          bestMatch = result; // Better partial match, keep checking
+        }
+      }
     } else {
-       fallbackStatus = 'Best Effort'; // If they didn't provide taxonomy to match against
+      fallbackStatus = 'Best Effort'; // If they didn't provide taxonomy to match against
     }
 
     // Extract desired fields from the best matched result
@@ -172,7 +172,10 @@ export async function searchNPPESList(params: {
   let skip = 0;
 
   while (true) {
-    const res = await axios.get(NPPES_URL, { params: { ...base, skip: String(skip) } });
+    const res = await axios.get(NPPES_URL, {
+      params: { ...base, skip: String(skip) },
+      timeout: 8000,
+    });
     const data = res.data;
 
     const page: any[] = Array.isArray(data.results) ? data.results : [];
@@ -209,10 +212,8 @@ export async function searchNPPESList(params: {
     skip += 200;
 
     // Small polite delay between pages (keeps us within Render timeout)
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 100));
   }
 
   return all;
 }
-
-
