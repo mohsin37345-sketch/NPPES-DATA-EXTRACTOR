@@ -147,99 +147,76 @@ export async function queryNPPES(params: {
   }
 }
 
+// Fetch ALL matching NPPES records with automatic pagination and deduplication.
+// No artificial limit — loops until the API returns no more data.
 export async function searchNPPESList(params: {
   state?: string;
   npiType?: string;
   taxonomyDescription?: string;
-  limit?: number;
 }): Promise<any[]> {
+  // Resolve enumeration type
   let enumType = '';
   const rawType = (params.npiType || '').trim().toLowerCase();
-  if (rawType.includes('2') || rawType === 'organization') {
-    enumType = 'NPI-2';
-  } else if (rawType.includes('1') || rawType === 'individual') {
-    enumType = 'NPI-1';
-  }
+  if (rawType.includes('2') || rawType === 'organization') enumType = 'NPI-2';
+  else if (rawType.includes('1') || rawType === 'individual') enumType = 'NPI-1';
 
-  const PAGE_SIZE = 200; // NPPES API max per request
+  // Fixed params — 200 is the NPPES API hard max per request
+  const base: Record<string, string> = { version: '2.1', limit: '200' };
+  if (params.state) base.state = params.state.trim().toUpperCase();
+  if (enumType) base.enumeration_type = enumType;
+  if (params.taxonomyDescription) base.taxonomy_description = params.taxonomyDescription.trim();
 
-  const baseQueryParams: Record<string, string> = {
-    version: '2.1',
-    limit: PAGE_SIZE.toString(),
-  };
-
-  if (params.state) baseQueryParams.state = params.state.trim().toUpperCase();
-  if (enumType) baseQueryParams.enumeration_type = enumType;
-  if (params.taxonomyDescription) baseQueryParams.taxonomy_description = params.taxonomyDescription.trim();
-
-  const allResults: any[] = [];
-  const seenNPIs = new Set<string>(); // deduplication tracker
+  const all: any[] = [];
+  const seen = new Set<string>(); // NPI deduplication
   let skip = 0;
-  let totalAvailable = Infinity; // will be updated from first API response
+  let total = -1; // unknown until first response
 
-  try {
-    while (skip < totalAvailable) {
-      const queryParams = { ...baseQueryParams, skip: skip.toString() };
+  while (true) {
+    const res = await axios.get(NPPES_URL, { params: { ...base, skip: String(skip) } });
+    const data = res.data;
 
-      if (skip > 0) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-
-      const response = await axios.get(NPPES_URL, { params: queryParams });
-      const data = response.data;
-
-      // Parse the real total — API may return it as a number OR a string
-      if (skip === 0) {
-        const raw = data.result_count;
-        const parsed = typeof raw === 'number' ? raw : parseInt(raw, 10);
-        totalAvailable = !isNaN(parsed) && parsed > 0 ? parsed : PAGE_SIZE;
-      }
-
-      if (data.Errors && data.Errors.length > 0) {
-        if (allResults.length > 0) break;
-        throw new Error(data.Errors.map((e: any) => e.description).join('; '));
-      }
-
-      const pageResults = data.results || [];
-      if (pageResults.length === 0) break; // no more data
-
-      for (const bestMatch of pageResults) {
-        const npiNumber = bestMatch.number || '';
-
-        // Skip duplicates
-        if (npiNumber && seenNPIs.has(npiNumber)) continue;
-        if (npiNumber) seenNPIs.add(npiNumber);
-
-        const basic = bestMatch.basic || {};
-        const primaryTaxonomy = bestMatch.taxonomies?.find((t: any) => t.primary === true) || bestMatch.taxonomies?.[0];
-        const locationAddress = bestMatch.addresses?.find((a: any) => a.address_purpose === 'LOCATION') || bestMatch.addresses?.[0];
-
-        allResults.push({
-          'NPI Number': npiNumber,
-          'Enumeration Date': basic.enumeration_date || '',
-          'Organization Name': basic.organization_name || '',
-          'First Name': basic.authorized_official_first_name || basic.first_name || '',
-          'Last Name': basic.authorized_official_last_name || basic.last_name || '',
-          'Title/Position': basic.authorized_official_title_or_position || '',
-          'Phone Number': basic.authorized_official_telephone_number || locationAddress?.telephone_number || '',
-          'State': locationAddress?.state || '',
-          'NPI Type': bestMatch.enumeration_type || '',
-          'Taxonomy': primaryTaxonomy?.desc || '',
-        });
-      }
-
-      // If the page returned fewer than PAGE_SIZE, we've reached the end
-      if (pageResults.length < PAGE_SIZE) break;
-
-      // Advance to next page
-      skip += PAGE_SIZE;
+    // Capture total count from first page (may be string or number)
+    if (total === -1) {
+      total = Number(data.result_count) || 0;
+      if (total === 0) break; // nothing available
     }
 
-    return allResults;
-  } catch (error: any) {
-    if (allResults.length > 0) return allResults;
-    throw new Error(error.response?.data?.Errors?.[0]?.description || error.message || 'API Request Failed');
+    const page: any[] = Array.isArray(data.results) ? data.results : [];
+    if (page.length === 0) break; // API returned empty — we're done
+
+    for (const item of page) {
+      const npi = String(item.number || '').trim();
+      if (!npi || seen.has(npi)) continue; // skip blanks and duplicates
+      seen.add(npi);
+
+      const basic = item.basic || {};
+      const tax = item.taxonomies?.find((t: any) => t.primary === true) ?? item.taxonomies?.[0];
+      const addr = item.addresses?.find((a: any) => a.address_purpose === 'LOCATION') ?? item.addresses?.[0];
+
+      all.push({
+        'NPI Number': npi,
+        'Enumeration Date': basic.enumeration_date || '',
+        'Organization Name': basic.organization_name || '',
+        'First Name': basic.authorized_official_first_name || basic.first_name || '',
+        'Last Name': basic.authorized_official_last_name || basic.last_name || '',
+        'Title/Position': basic.authorized_official_title_or_position || '',
+        'Phone Number': basic.authorized_official_telephone_number || addr?.telephone_number || '',
+        'State': addr?.state || '',
+        'NPI Type': item.enumeration_type || '',
+        'Taxonomy': tax?.desc || '',
+      });
+    }
+
+    skip += 200;
+
+    // Stop if we fetched the last partial page or reached the declared total
+    if (page.length < 200 || skip >= total) break;
+
+    // Small polite delay between pages
+    await new Promise(r => setTimeout(r, 150));
   }
+
+  return all;
 }
 
 
