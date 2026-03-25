@@ -162,7 +162,6 @@ export async function searchNPPESList(params: {
   }
 
   const PAGE_SIZE = 200; // NPPES API max per request
-  const userLimit = params.limit || 5000; // hard cap to prevent runaway fetches
 
   const baseQueryParams: Record<string, string> = {
     version: '2.1',
@@ -176,22 +175,24 @@ export async function searchNPPESList(params: {
   const allResults: any[] = [];
   const seenNPIs = new Set<string>(); // deduplication tracker
   let skip = 0;
-  let totalAvailable = Infinity; // will be set from the first API response
+  let totalAvailable = Infinity; // will be updated from first API response
 
   try {
-    while (allResults.length < userLimit && skip < totalAvailable) {
+    while (skip < totalAvailable) {
       const queryParams = { ...baseQueryParams, skip: skip.toString() };
 
       if (skip > 0) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
 
       const response = await axios.get(NPPES_URL, { params: queryParams });
       const data = response.data;
 
-      // Set the true total from the API on the first page
+      // Parse the real total — API may return it as a number OR a string
       if (skip === 0) {
-        totalAvailable = typeof data.result_count === 'number' ? data.result_count : PAGE_SIZE;
+        const raw = data.result_count;
+        const parsed = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        totalAvailable = !isNaN(parsed) && parsed > 0 ? parsed : PAGE_SIZE;
       }
 
       if (data.Errors && data.Errors.length > 0) {
@@ -199,11 +200,10 @@ export async function searchNPPESList(params: {
         throw new Error(data.Errors.map((e: any) => e.description).join('; '));
       }
 
-      if (!data.results || data.results.length === 0) {
-        break;
-      }
+      const pageResults = data.results || [];
+      if (pageResults.length === 0) break; // no more data
 
-      for (const bestMatch of data.results) {
+      for (const bestMatch of pageResults) {
         const npiNumber = bestMatch.number || '';
 
         // Skip duplicates
@@ -226,9 +226,10 @@ export async function searchNPPESList(params: {
           'NPI Type': bestMatch.enumeration_type || '',
           'Taxonomy': primaryTaxonomy?.desc || '',
         });
-
-        if (allResults.length >= userLimit) break;
       }
+
+      // If the page returned fewer than PAGE_SIZE, we've reached the end
+      if (pageResults.length < PAGE_SIZE) break;
 
       // Advance to next page
       skip += PAGE_SIZE;
