@@ -1,0 +1,5 @@
+state,npi type,taxonomy description
+MD,2,Skilled Nursing Facility
+MD,Organization,Assisted Living Facility
+MD,1,Audiologist
+MD,1,invalid-taxonomy-for-testing
