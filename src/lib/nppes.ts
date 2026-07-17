@@ -12,6 +12,7 @@ export interface NPPESMatchResult {
   auth_title: string;
   auth_phone: string;
   matched_state: string;
+  matched_city: string;
   matched_npi_type: string;
   matched_taxonomy: string;
   match_status: 'Exact' | 'Best Effort' | 'No Match';
@@ -20,6 +21,7 @@ export interface NPPESMatchResult {
 
 export async function queryNPPES(params: {
   state?: string;
+  city?: string;
   npiType?: string;
   taxonomyDescription?: string;
 }): Promise<NPPESMatchResult> {
@@ -32,6 +34,7 @@ export async function queryNPPES(params: {
     auth_title: '',
     auth_phone: '',
     matched_state: '',
+    matched_city: '',
     matched_npi_type: '',
     matched_taxonomy: '',
     match_status: 'No Match',
@@ -55,6 +58,10 @@ export async function queryNPPES(params: {
 
     if (params.state) {
       queryParams.state = params.state.trim().toUpperCase();
+    }
+
+    if (params.city) {
+      queryParams.city = params.city.trim();
     }
 
     if (enumType) {
@@ -134,6 +141,7 @@ export async function queryNPPES(params: {
       auth_title: basic.authorized_official_title_or_position || '',
       auth_phone: basic.authorized_official_telephone_number || '',
       matched_state: locationAddress?.state || '',
+      matched_city: locationAddress?.city || '',
       matched_npi_type: bestMatch.enumeration_type || '',
       matched_taxonomy: primaryTaxonomy?.desc || '',
       match_status: fallbackStatus,
@@ -152,6 +160,7 @@ export async function queryNPPES(params: {
 // We stop ONLY when a page returns 0 results or fewer than 200 results (last page).
 export async function searchNPPESList(params: {
   state?: string;
+  city?: string;
   npiType?: string;
   taxonomyDescription?: string;
 }): Promise<any[]> {
@@ -164,6 +173,7 @@ export async function searchNPPESList(params: {
   // Fixed params — 200 is the NPPES API hard max per request
   const base: Record<string, string> = { version: '2.1', limit: '200' };
   if (params.state) base.state = params.state.trim().toUpperCase();
+  if (params.city) base.city = params.city.trim();
   if (enumType) base.enumeration_type = enumType;
   if (params.taxonomyDescription) base.taxonomy_description = params.taxonomyDescription.trim();
 
@@ -201,6 +211,7 @@ export async function searchNPPESList(params: {
         'Title/Position': basic.authorized_official_title_or_position || '',
         'Phone Number': basic.authorized_official_telephone_number || addr?.telephone_number || '',
         'State': addr?.state || '',
+        'City': addr?.city || '',
         'NPI Type': item.enumeration_type || '',
         'Taxonomy': tax?.desc || '',
       });

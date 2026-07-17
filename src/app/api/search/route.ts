@@ -7,7 +7,7 @@ const NPPES_URL = 'https://npiregistry.cms.hhs.gov/api/';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { state, npiType, taxonomy } = body;
+  const { state, city, npiType, taxonomy } = body;
 
   // Resolve enumeration type
   let enumType = '';
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
 
   const base: Record<string, string> = { version: '2.1', limit: '200' };
   if (state) base.state = state.trim().toUpperCase();
+  if (city) base.city = city.trim();
   if (enumType) base.enumeration_type = enumType;
   if (taxonomy) base.taxonomy_description = taxonomy.trim();
 

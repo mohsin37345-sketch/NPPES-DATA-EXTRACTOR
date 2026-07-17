@@ -49,12 +49,14 @@ export async function POST(req: NextRequest) {
       
       // Attempt to map columns (flexible mapping)
       const state = getVal(row, ['state', 'provider_state', 'st']);
+      const city = getVal(row, ['city', 'provider_city', 'town', 'provider_town']);
       const npiType = getVal(row, ['npi type', 'npitype', 'npi_type', 'type']);
       const taxonomyDesc = getVal(row, ['taxonomy description', 'taxonomy_description', 'taxonomy', 'specialty']);
 
       // Call NPPES API
       const result = await queryNPPES({
         state,
+        city,
         npiType,
         taxonomyDescription: taxonomyDesc
       });
@@ -71,6 +73,7 @@ export async function POST(req: NextRequest) {
         'Extracted Auth Title': result.auth_title,
         'Extracted Auth Phone': result.auth_phone,
         'Matched State': result.matched_state,
+        'Matched City': result.matched_city,
         'Matched NPI Type': result.matched_npi_type,
         'Matched Taxonomy': result.matched_taxonomy,
         'Match Status': result.match_status,

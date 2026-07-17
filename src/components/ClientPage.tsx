@@ -9,6 +9,7 @@ import ProgressDisplay from '@/components/ProgressDisplay';
 export default function ClientPage() {
   const [activeTab, setActiveTab] = useState<'search' | 'batch'>('search');
   const [state, setState] = useState('');
+  const [city, setCity] = useState('');
   const [npiType, setNpiType] = useState('');
   const [taxonomy, setTaxonomy] = useState('');
   const [status, setStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
@@ -22,7 +23,7 @@ export default function ClientPage() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taxonomy && !npiType && !state) {
+    if (!taxonomy && !npiType && !state && !city) {
       setErrorMsg('Please enter at least one field to search.');
       setStatus('error');
       return;
@@ -43,7 +44,7 @@ export default function ClientPage() {
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, npiType, taxonomy }),
+        body: JSON.stringify({ state, city, npiType, taxonomy }),
       });
 
       if (!response.ok || !response.body) {
@@ -241,7 +242,7 @@ export default function ClientPage() {
                     className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">NPI Type</label>
                     <select
@@ -263,6 +264,16 @@ export default function ClientPage() {
                       placeholder="e.g. MD, NY"
                       maxLength={2}
                       className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={e => setCity(e.target.value)}
+                      placeholder="e.g. Baltimore"
+                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
                     />
                   </div>
                 </div>
@@ -461,28 +472,30 @@ export default function ClientPage() {
              </div>
              
              <div className="overflow-x-auto bg-slate-800 rounded-lg border border-slate-700">
-               <table className="w-full text-left text-sm text-slate-300">
-                 <thead className="bg-slate-800/50 border-b border-slate-700 uppercase font-medium text-slate-400">
-                   <tr>
-                     <th className="px-4 py-3">NPI Number</th>
-                     <th className="px-4 py-3">Name</th>
-                     <th className="px-4 py-3">State</th>
-                     <th className="px-4 py-3">Taxonomy</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-700">
-                   {results.slice(0, 100).map((r, i) => (
-                     <tr key={i} className="hover:bg-slate-700/50 transition-colors">
-                       <td className="px-4 py-3 font-mono text-xs">{r['NPI Number']}</td>
-                       <td className="px-4 py-3">
-                         {r['Organization Name'] || `${r['First Name']} ${r['Last Name']}`}
-                       </td>
-                       <td className="px-4 py-3">{r['State']}</td>
-                       <td className="px-4 py-3 truncate max-w-xs" title={r['Taxonomy']}>{r['Taxonomy']}</td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="bg-slate-800/50 border-b border-slate-700 uppercase font-medium text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">NPI Number</th>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">City</th>
+                      <th className="px-4 py-3">State</th>
+                      <th className="px-4 py-3">Taxonomy</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {results.slice(0, 100).map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-700/50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs">{r['NPI Number']}</td>
+                        <td className="px-4 py-3">
+                          {r['Organization Name'] || `${r['First Name']} ${r['Last Name']}`}
+                        </td>
+                        <td className="px-4 py-3 uppercase text-slate-400">{r['City'] || ''}</td>
+                        <td className="px-4 py-3 uppercase">{r['State']}</td>
+                        <td className="px-4 py-3 truncate max-w-xs" title={r['Taxonomy']}>{r['Taxonomy']}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
                {results.length > 100 && (
                  <div className="p-3 text-center text-xs text-slate-400 border-t border-slate-700">
                    Showing first 100 results. Download Excel to see all {results.length}.
